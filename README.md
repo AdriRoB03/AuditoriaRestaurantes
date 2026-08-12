@@ -1,5 +1,11 @@
 # 🍽️ Auditoria de Restaurantes con IA
-Una herramienta construida en Python que automatiza la extracción, análisis y visualización de reseñas de restaurantes en Google Maps utilizando Inteligencia Artificial.
+
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![SQLite](https://img.shields.io/badge/SQLite-Database-lightgrey.svg)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/Google_Gemini-AI-orange.svg)
+
+Una herramienta construida en Python que automatiza la extracción, análisis y visualización de reseñas de restaurantes en Google Maps utilizando Inteligencia Artificial(NLP) y bases de datos relacionales.
 
 En lugar de leer cientos de reseñas manualmente, este proyecto extrae los datos, utiliza NLP (Modelos de Lenguaje) para analizar el sentimiento y categorizar las quejas/alabanzas, y muestra los resultados en un Dashboard interactivo.
 
@@ -7,7 +13,8 @@ En lugar de leer cientos de reseñas manualmente, este proyecto extrae los datos
 
 - **Web Scraping Automatizado:** Extracción de reseñas de Google Maps mediante Apify.
 - **Anonimización de Datos:** Cumplimiento de privacidad sustituyendo nombres de usuarios por IDs únicos (UUID).
-- **Análisis NLP con Inteligencia Artificial:** Integración con la API de Google Gemini (gemini-3.5-flash) para clasificar cada reseña por:
+- **Almacenamiento Persistente:** Uso de **SQLite** como motor de base de datos relacional para garantizar la integridad de los datos.
+- **Procesamiento NLP Incremental (Batching):** Integración con la API de Google Gemini (`gemini-3.5-flash-lite`). El script procesa reseñas por lotes (10 a la vez) y solo analiza los datos nuevos, optimizando el uso y los costes de la API. Clasifica por:
   - **Sentimiento:** Positivo, Negativo o Neutral.
   - **Categoría:** Comida, Servicio, Precio, Ambiente, u Otro.
   - **Resumen:** Síntesis de la reseña en máximo 5 palabras.
