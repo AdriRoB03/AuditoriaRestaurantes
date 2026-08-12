@@ -1,23 +1,23 @@
 import os
-# uuid crea codigos aleatorios y unicos (lo usamos para simular el nombre de los clientes)
+import sqlite3
 import uuid
 import pandas as pd
 from apify_client import ApifyClient
 from dotenv import load_dotenv
 
-# Cargamos las variables de tu archivo .env
+# Cargamos las variables del archivo .env
 load_dotenv()
 
 def obtener_resenas_gratis(url_restaurante, api_token):
     print("Conectando con Apify (esto puede tardar un minuto)...")
     
-    # Inicializamos el cliente con tu clave secreta
+    # Inicializamos el cliente con la clave secreta
     client = ApifyClient(api_token)
     
     # Configuramos qué queremos extraer
     run_input = {
         "startUrls": [{"url": url_restaurante}],
-        "maxReviews": 150, # Extraemos solo 20 reseñas para hacer la prueba rápido
+        "maxReviews": 1000, # Extraemos las reseñas
         "language": "es"
     }
 
@@ -47,7 +47,7 @@ def obtener_resenas_gratis(url_restaurante, api_token):
             "texto": resena.get("text")
         }
         
-        # Filtramos para guardar solo las que tienen texto (a veces la gente solo deja 5 estrellas sin escribir nada)
+        # Filtramos para guardar solo las que tienen texto
         if resena_limpia["texto"]:
             resenas_limpias.append(resena_limpia)
 
@@ -67,11 +67,45 @@ if __name__ == "__main__":
             # Convertimos los datos en una tabla de Pandas
             df = pd.DataFrame(lista_resenas)
             
-            # Lo guardamos en formato CSV
+            # Lo guardamos en formato CSV (como backup)
             df.to_csv("raw_reviews.csv", index=False, encoding="utf-8")
-            print(f"✅ ¡Éxito! Se han guardado {len(df)} reseñas anonimizadas en 'raw_reviews.csv'")
+            print(f"✅ ¡Éxito! Se han guardado {len(df)} reseñas anonimizadas en el backup 'raw_reviews.csv'")
             
-            # Imprimimos las primeras para confirmar
-            print(df.head())
+            # --- NUEVA CONEXIÓN A LA BASE DE DATOS ---
+            print("\n💾 Sincronizando con la base de datos SQLite...")
+            conexion = sqlite3.connect("restaurantes.db")
+            cursor = conexion.cursor()
+            
+            # Nos aseguramos de que la tabla existe
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS resenas (
+                id_cliente TEXT PRIMARY KEY,
+                fecha TEXT,
+                estrellas INTEGER,
+                texto TEXT,
+                sentimiento TEXT,
+                categoria TEXT,
+                resumen TEXT
+            )
+            ''')
+            
+            nuevas_insertadas = 0
+            
+            for index, fila in df.iterrows():
+                try:
+                    # Insertamos solo las columnas básicas, el resto se quedan en NULL hasta que pase la IA
+                    cursor.execute('''
+                    INSERT INTO resenas (id_cliente, fecha, estrellas, texto)
+                    VALUES (?, ?, ?, ?)
+                    ''', (fila["id_cliente"], fila["fecha"], fila["estrellas"], fila["texto"]))
+                    nuevas_insertadas += 1
+                except sqlite3.IntegrityError:
+                    # Si el id_cliente ya existe, significa que es una reseña vieja. La ignoramos.
+                    pass
+                    
+            conexion.commit()
+            conexion.close()
+            
+            print(f"✅ Sincronización completa: {nuevas_insertadas} reseñas NUEVAS listas para ser analizadas por IA.")
         else:
             print("❌ No se encontraron reseñas con texto o hubo un error.")

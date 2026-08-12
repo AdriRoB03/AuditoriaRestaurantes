@@ -2,6 +2,7 @@ import os
 import time
 import json
 import pandas as pd
+import sqlite3
 from google import genai
 from dotenv import load_dotenv
 
@@ -58,39 +59,50 @@ def analizar_lote_con_ia(lista_textos):
 
 # --- EJECUCIÓN DEL SCRIPT ---
 if __name__ == "__main__":
-    print("Abriendo raw_reviews.csv...")
-    df = pd.read_csv("raw_reviews.csv")
+    print("⚙️ Conectando a la base de datos SQLite...")
+    conexion = sqlite3.connect("restaurantes.db")
+    cursor = conexion.cursor()
     
-    resultados_totales = []
+    # Solo pedimos las reseñas que NO tienen sentimiento o que fallaron antes
+    cursor.execute("SELECT id_cliente, texto FROM resenas WHERE sentimiento IS NULL OR sentimiento = 'Error'")
+    pendientes = cursor.fetchall()
     
-    # Vamos a enviar las reseñas de 10 en 10
-    tamano_lote = 10 
-    
-    print(f"🤖 Analizando {len(df)} reseñas por LOTES de {tamano_lote}... (Mucho más rápido y sin gastar cuota)")
-    
-    for i in range(0, len(df), tamano_lote):
-        # Recortamos 10 reseñas de la tabla
-        lote_actual = df["texto"].iloc[i:i+tamano_lote].tolist()
-        print(f"Procesando reseñas de la {i+1} a la {min(i+tamano_lote, len(df))}...")
+    if not pendientes:
+        print("✅ No hay reseñas nuevas para analizar. ¡Todo está al día!")
+    else:
+        print(f"🤖 Se han encontrado {len(pendientes)} reseñas pendientes. Iniciando análisis...")
         
-        # Se las pasamos a la IA
-        respuestas_lote = analizar_lote_con_ia(lote_actual)
+        tamano_lote = 10
+        for i in range(0, len(pendientes), tamano_lote):
+            lote = pendientes[i:i+tamano_lote]
+            textos_lote = [fila[1] for fila in lote]
+            ids_lote = [fila[0] for fila in lote]
+            
+            print(f"Procesando reseñas {i+1} a {min(i+tamano_lote, len(pendientes))} de {len(pendientes)}...")
+            
+            resultados = analizar_lote_con_ia(textos_lote)
+            
+            # Verificamos que la IA nos devuelve exactamente las que le pedimos
+            if len(resultados) == len(lote):
+                for j in range(len(lote)):
+                    res = resultados[j]
+                    # Solo actualizamos si no devolvió un error masivo
+                    if res.get("sentimiento") != "Error":
+                        cursor.execute('''
+                            UPDATE resenas 
+                            SET sentimiento = ?, categoria = ?, resumen = ? 
+                            WHERE id_cliente = ?
+                        ''', (res.get("sentimiento"), res.get("categoria"), res.get("resumen"), ids_lote[j]))
+                
+                conexion.commit() # PUNTO DE GUARDADO
+                print("💾 Lote guardado con éxito.")
+            else:
+                print("⚠️ Descuadre en la respuesta de la IA. Saltando lote por seguridad.")
+            
+            # Pausa para la API
+            if i + tamano_lote < len(pendientes):
+                time.sleep(10)
         
-        # Comprobamos por seguridad que la IA nos haya devuelto 10 respuestas exactas
-        if len(respuestas_lote) == len(lote_actual):
-            resultados_totales.extend(respuestas_lote)
-        else:
-            print("⚠️ La IA se ha saltado alguna reseña. Rellenando con errores para no romper el programa.")
-            for _ in lote_actual:
-                resultados_totales.append({"sentimiento": "Error", "categoria": "Error", "resumen": "Error"})
+        print("\n✅ ¡Análisis incremental completado!")
         
-        # Pequeña pausa de seguridad de 10 segundos entre paquete y paquete
-        time.sleep(10) 
-        
-    # Añadimos los resultados (que ahora son listas) a nuestra tabla
-    df["Sentimiento"] = [r.get("sentimiento") for r in resultados_totales]
-    df["Categoria"] = [r.get("categoria") for r in resultados_totales]
-    df["Resumen"] = [r.get("resumen") for r in resultados_totales]
-    
-    df.to_csv("analyzed_reviews.csv", index=False, encoding="utf-8")
-    print("\n✅ ¡Análisis por lotes completado! Se ha actualizado 'analyzed_reviews.csv'")
+    conexion.close()
