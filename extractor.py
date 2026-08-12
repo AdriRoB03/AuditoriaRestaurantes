@@ -1,6 +1,6 @@
 import os
 import sqlite3
-import uuid
+import hashlib
 import pandas as pd
 from apify_client import ApifyClient
 from dotenv import load_dotenv
@@ -17,7 +17,7 @@ def obtener_resenas_gratis(url_restaurante, api_token):
     # Configuramos qué queremos extraer
     run_input = {
         "startUrls": [{"url": url_restaurante}],
-        "maxReviews": 1000, # Extraemos las reseñas
+        "maxReviews": 800, # Extraemos las reseñas
         "language": "es"
     }
 
@@ -36,19 +36,23 @@ def obtener_resenas_gratis(url_restaurante, api_token):
     
     resenas_limpias = []
     for resena in resultados:
-        # Creamos un ID anónimo (ej: 4f3b-8a21...) para no guardar el nombre real
-        id_anonimo = str(uuid.uuid4())[:8] 
+        texto_resena = resena.get("text")
         
-        # Guardamos solo lo que la Inteligencia Artificial necesitará después
-        resena_limpia = {
-            "id_cliente": f"Cliente_{id_anonimo}",
-            "fecha": resena.get("publishedAtDate"),
-            "estrellas": resena.get("stars"),
-            "texto": resena.get("text")
-        }
-        
-        # Filtramos para guardar solo las que tienen texto
-        if resena_limpia["texto"]:
+        # Filtramos primero para guardar solo las que tienen texto
+        if texto_resena:
+            fecha_resena = resena.get("publishedAtDate", "")
+            
+            # Creamos un ID anónimo basado matemáticamente en el texto y la fecha
+            # Si se ejecuta 100 veces, esta fórmula siempre dará el mismo ID para la misma reseña
+            string_base = f"{texto_resena}{fecha_resena}".encode('utf-8')
+            id_constante = hashlib.md5(string_base).hexdigest()[:10]
+            
+            resena_limpia = {
+                "id_cliente": f"Cliente_{id_constante}",
+                "fecha": fecha_resena,
+                "estrellas": resena.get("stars"),
+                "texto": texto_resena
+            }
             resenas_limpias.append(resena_limpia)
 
     return resenas_limpias

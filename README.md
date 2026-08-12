@@ -12,7 +12,7 @@ En lugar de leer cientos de reseñas manualmente, este proyecto extrae los datos
 ## 🚀 Características Principales
 
 - **Web Scraping Automatizado:** Extracción de reseñas de Google Maps mediante Apify.
-- **Anonimización de Datos:** Cumplimiento de privacidad sustituyendo nombres de usuarios por IDs únicos (UUID).
+- **Anonimización de Datos:** Cumplimiento de privacidad sustituyendo nombres de usuarios por IDs únicos basados en *hashing* matemático (`hashlib`). Esto protege los datos personales y garantiza que el sistema no duplique reseñas en extracciones sucesivas.
 - **Almacenamiento Persistente:** Uso de **SQLite** como motor de base de datos relacional para garantizar la integridad de los datos.
 - **Procesamiento NLP Incremental (Batching):** Integración con la API de Google Gemini (`gemini-3.5-flash-lite`). El script procesa reseñas por lotes (10 a la vez) y solo analiza los datos nuevos, optimizando el uso y los costes de la API. Clasifica por:
   - **Sentimiento:** Positivo, Negativo o Neutral.
