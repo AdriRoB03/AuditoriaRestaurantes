@@ -1,5 +1,4 @@
-# 🍽️ AI Restaurant Review Analytics
-
+# 🍽️ Auditoria de Restaurantes con IA
 Una herramienta construida en Python que automatiza la extracción, análisis y visualización de reseñas de restaurantes en Google Maps utilizando Inteligencia Artificial.
 
 En lugar de leer cientos de reseñas manualmente, este proyecto extrae los datos, utiliza NLP (Modelos de Lenguaje) para analizar el sentimiento y categorizar las quejas/alabanzas, y muestra los resultados en un Dashboard interactivo.
